@@ -39,14 +39,23 @@ class piece:
 class chess(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
-        self.geometry("800x800+0+0")
+        self.geometry("1100x875+0+0")
         self.winfo_toplevel().title("Chess")
 
+        #self.god_button = tk.Button(self,command= lambda t = 'test' :self.ressurect(t))
+        #self.god_button.place(relx=.1,rely=.1)
 
         self.grid = np.array([[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]])
         self.gui = {}
         self.board_frame = tk.Frame(self)
-        self.board_frame.grid(row=0,column=0)
+        self.board_frame.place(rely=.5,relx=.5,relheight=.75,relwidth=.75,anchor='c')
+        self.min_frame = tk.Frame(self.board_frame)
+        self.min_frame.place( anchor="c", relx=.5, rely=.5)
+        self.p1_graveyard = tk.Frame(self)
+        self.p2_graveyard = tk.Frame(self)
+        self.p1_graveyard.place(relx=0.05,relwidth=0.1,rely=.5,relheight=.75,anchor='c')
+        self.p2_graveyard.place(relx=0.95,relwidth=0.1,rely=.5,relheight=.75,anchor='c')
+
         #self.grid = np.array
         wpieces = ['w1p1','w1p2','w1p3','w1p4','w1p5','w1p6','w1p7','w1p8', \
                   'w2p1','w3p2','w4p3','w5p4','w6p5','w4p6','w3p7','w2p8']
@@ -79,10 +88,10 @@ class chess(tk.Tk):
         self.black = -1
         #C1 "tan"
         #C2 "burlywood4"
-        pref_file=os.getcwd() + "/chess_prefs.json"
+        pref_file=os.path.dirname(sys.argv[0]) + "/chess_prefs.json"
         self.prefs = preferences.preferences(pref_file)
-        self.prefs.make_default( checker1="tan", checker2="burlywood4", player1="yellow", player2="green")
-        #self.prefs.change_pref( checker1="tan", checker2="burlywood4", player1="yellow", player2="green")
+        self.prefs.make_default( checker1="tan", checker2="burlywood4", player1="black", player2="white")
+        #self.prefs.change_pref( checker1="tan", checker2="burlywood4", player1="black", player2="white")
 
 
 
@@ -99,10 +108,12 @@ class chess(tk.Tk):
                     state = "normal"
                 if col < 0:
                     fgc = fg[0]
+                    anc='sw'
                 else:
                     fgc = fg[1]
-                self.gui[c][d]=tk.Button(self.board_frame,text=piece.mapping[abs(col)],\
-                    height=4,width=8,anchor='c',bg=self.checker(c,d),fg=fgc,command= lambda row=c,col=d :self.check_piece_move(row,col), state = state)
+                    anc='ne'
+                self.gui[c][d]=tk.Button(self.min_frame,text=piece.mapping[abs(col)],\
+                    height=4,width=8,anchor=anc,bg=self.checker(c,d),fg=fgc,command= lambda row=c,col=d :self.check_piece_move(row,col), state = state)
                 self.gui[c][d].grid(row=c,column=d,sticky='news')
             self.grid_columnconfigure(c)
             self.grid_rowconfigure(c)
@@ -185,7 +196,7 @@ class chess(tk.Tk):
                 cnt+=1
             elif self.is_enemy(self.turn,self.grid[i][j]):
                 num = self.grid[i][j]
-                self.grid[i,j] = '50'
+                self.grid[i,j] = 50
                 print ('%i)%i,%i Kill %s' % (cnt , i,j,self.grid[i][j]))
                 apmove.append([i,j,50,num])
                 cnt+=1
@@ -225,14 +236,37 @@ class chess(tk.Tk):
         self.turn = self.turn * -1
 
     def update_graveyard(self,pi):
-        if pi.num == 6:
+        print (pi.num,self.turn)
+        print (piece.mapping[pi.num * self.turn * -1])
+        if self.turn == 1:
+            t_b= tk.Button(self.p1_graveyard,bg='red',text=piece.mapping[abs(pi.num)],state='disabled')
+            t_b.pack(side = "bottom")
+        else:
+            t_b= tk.Button(self.p2_graveyard,bg='blue',text=piece.mapping[abs(pi.num)],state='disabled')
+            t_b.pack(side = "bottom")
+            print("children:",self.p2_graveyard.winfo_children())
+        pi.alive = False
+        if pi.num * self.turn * -1 == 6:
             print ("%i won!" % self.turn)
             exit()
         if pi.owner == 1:
             self.white_gy.append(pi)
         elif pi.owner == -1:
             self.black_gy.append(pi)
-
+            '''
+    def open_graveyard(self,pi):
+        if self.turn == 1:
+            t_frm = self.p1_graveyard
+        else:
+            t_frm = self.p2_graveyard
+        print("children:",self.p2_graveyard.winfo_children())
+        #print("children:",self.min_frame.winfo_children())
+        for child in t_frm.winfo_children():
+            piece_name = piece.mapping[]
+            child.configure(state="normal",command= lambda c=child : self.ressurect(pi,c)
+    def ressurect(self,pawn,zombie):
+        print
+        '''
     def remove_pmoves(self,amov,apmove):
         for mov in apmove:
             if mov != amov:
@@ -283,7 +317,7 @@ class chess(tk.Tk):
             self.gui[orig[0]][orig[1]].configure(command=lambda:self.return_to_normal(),state="normal")
 
     def gui_move(self,orig,move,apmove):
-        print (apmove)
+        #print (apmove)
         apmove.remove(move)
         for pmove in apmove:
                 self.grid[pmove[0],pmove[1]]=pmove[3]
@@ -291,8 +325,7 @@ class chess(tk.Tk):
         nnum = self.grid[move[0],move[1]]
         if nnum != 0:
             for pi in self.whites+self.blacks:
-                if pi.row == move[0] and pi.col == move[1]:
-                    pi.alive = False
+                if pi.row == move[0] and pi.col == move[1] and pi.alive:
                     self.update_graveyard(pi)
                 if pi.row == orig[0] and pi.col == orig[1]:
                     pi.row, pi.col = move[0], move[1]
@@ -313,12 +346,21 @@ class chess(tk.Tk):
 
     def return_to_normal(self):
         fg = self.prefs.read_pref("general","player1","player2")
+        #Clears board
+        for c,row in enumerate(self.grid):
+            for d,col in enumerate(row):
+                self.grid[c,d]=0
+        #Places mapping number at each position
+        for pi in self.whites + self.blacks:
+            if pi.alive:
+                self.grid[pi.row,pi.col] = pi.num
+        #self.print_board()
+
         for c,row in enumerate(self.grid):
             for d,col in enumerate(row):
                 #self.print_board()
-                if col == 0 or col > 50:
-                    state="disabled"
-                    self.grid[c,d]=0
+                if col == 0:
+                    state = "disabled"
                 else:
                     state = "normal"
                 if col < 0:
@@ -332,6 +374,7 @@ class chess(tk.Tk):
 
 
         self.print_board()
+
 
     def checker(self,row,col):
         if ( row * 7 + col ) % 2:
