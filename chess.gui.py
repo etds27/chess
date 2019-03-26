@@ -1,11 +1,20 @@
 #!/usr/bin/python3
 
+'''
+ISSUES:
+    Complete: All spaces go white when slecting piece to move. Stopped program from changing bg
+    Complete: Cannot move piece after selecting, then deselecting piece. Properly reset self.grid after deselecting piece
+    Complete: After taking piece, piece that killed other can be moved as other player. Added self.alive == true to piece move check
+'''
+
 import numpy as np
 import sys
 from piece_moves import *
 from copy import deepcopy
 import tkinter as tk
 import pprint
+import preferences
+import os
 
 class piece:
     mapping = {
@@ -68,13 +77,19 @@ class chess(tk.Tk):
         self.turn = 1
         self.white = 1
         self.black = -1
+        #C1 "tan"
+        #C2 "burlywood4"
+        pref_file=os.getcwd() + "/chess_prefs.json"
+        self.prefs = preferences.preferences(pref_file)
+        self.prefs.make_default( checker1="tan", checker2="burlywood4", player1="yellow", player2="green")
+        #self.prefs.change_pref( checker1="tan", checker2="burlywood4", player1="yellow", player2="green")
 
 
 
 
     def run(self):
         self.classes_to_grid()
-
+        fg = self.prefs.read_pref("general","player1","player2")
         for c,row in enumerate(self.grid):
             self.gui[c] = {}
             for d,col in enumerate(row):
@@ -82,8 +97,12 @@ class chess(tk.Tk):
                     state = "disabled"
                 else:
                     state = "normal"
+                if col < 0:
+                    fgc = fg[0]
+                else:
+                    fgc = fg[1]
                 self.gui[c][d]=tk.Button(self.board_frame,text=piece.mapping[abs(col)],\
-                    height=4,width=8,anchor='c',bg='black',fg='white',command= lambda row=c,col=d :self.check_piece_move(row,col), state = state)
+                    height=4,width=8,anchor='c',bg=self.checker(c,d),fg=fgc,command= lambda row=c,col=d :self.check_piece_move(row,col), state = state)
                 self.gui[c][d].grid(row=c,column=d,sticky='news')
             self.grid_columnconfigure(c)
             self.grid_rowconfigure(c)
@@ -113,8 +132,8 @@ class chess(tk.Tk):
         #print(row,col)
         piq = 0
         for pi in self.whites+self.blacks:
-            print(row,pi.row,col,pi.col,self.turn,pi.owner)
-            if pi.row == row and pi.col == col and pi.owner == self.turn:
+            #print(row,pi.row,col,pi.col,self.turn,pi.owner)
+            if pi.row == row and pi.col == col and pi.owner == self.turn and pi.alive == True:
                 piq = pi
                 break
         if piq != 0:
@@ -140,7 +159,17 @@ class chess(tk.Tk):
             self.place_check([row,col],pmoves)
         else:
             print ("Choose a space with a piece on it")
+            #self.gui[row][col].flash()
+            self.flash_square(row,col,"BAD")
+
             #self.choose_move()
+    def flash_square(self,row,col,error):
+        if error == "BAD":
+            bcolor = "red"
+        if error == "WARN":
+            bcolor = "yellow"
+        self.gui[row][col].config(bg = bcolor,activebackground=bcolor)
+        self.after(500, lambda: self.gui[row][col].config(bg = self.checker(row,col),activebackground='white'))
 
     #Takes in list of possible coordinates to move selected piece. Checks which moves are valid. 99 = Open. 50 = Kill
     def place_check(self,orig,pmoves):
@@ -166,7 +195,9 @@ class chess(tk.Tk):
         self.print_board()
         if apmove == []:
             print ("Piece cannot move. Choose another")
-            self.choose_move()
+            self.flash_square(orig[0],orig[1],"BAD")
+
+            #self.choose_move()
         else:
             try:
                 self.gui_pmove(orig,apmove)
@@ -176,7 +207,7 @@ class chess(tk.Tk):
                 #self.move_piece(orig,mover)
             except ValueError:
                 self.remove_pmoves([0,0,0],apmove)
-                self.choose_move()
+                #self.choose_move()
 
 
 
@@ -233,11 +264,12 @@ class chess(tk.Tk):
                 sys.stdout.flush()
             print()
 
+    #Changing GUI to relect the possible moves for selected piece
     def gui_pmove(self,orig,apmove):
 
-        for k,v in self.gui.items():
-            for l,w in v.items():
-                self.gui[k][l].configure(bg="white",state = "disabled")
+        #for k,v in self.gui.items():
+        #    for l,w in v.items():
+        #        self.gui[k][l].configure(bg="white",state = "disabled")
         for mov in apmove:
             if self.grid[mov[0],mov[1]] == 99:
                 color = "blue"
@@ -266,23 +298,47 @@ class chess(tk.Tk):
                     pi.row, pi.col = move[0], move[1]
         self.grid[orig[0],orig[1]] = 0
         self.grid[move[0],move[1]] = onum
-        pass
+
         self.gui[move[0]][move[1]].configure(text=piece.mapping[onum * self.turn])
         self.gui[orig[0]][orig[1]].configure(text=piece.mapping[0])
-        self.return_to_normal()
+
+
+
+
         self.turn = self.turn * -1
+        self.print_board()
+        self.return_to_normal()
+        #for pi in self.whites+self.blacks:
+        #    print("%s: row:%i col:%i, alive:%r" % (pi.mapping[abs(pi.num)], pi.row, pi.col, pi.alive))
 
     def return_to_normal(self):
+        fg = self.prefs.read_pref("general","player1","player2")
         for c,row in enumerate(self.grid):
             for d,col in enumerate(row):
-                if col == 0:
+                #self.print_board()
+                if col == 0 or col > 50:
                     state="disabled"
                     self.grid[c,d]=0
                 else:
                     state = "normal"
-                self.gui[c][d].configure(bg="black",command= lambda row=c,col=d :self.check_piece_move(row,col), state = state)
+                if col < 0:
+                    self.gui[c][d].configure(fg=fg[0],command= lambda row=c,col=d :self.check_piece_move(row,col), state = state)
+                elif col > 0:
+                    self.gui[c][d].configure(fg=fg[1],command= lambda row=c,col=d :self.check_piece_move(row,col), state = state)
+                else:
+                    self.gui[c][d].configure(command= lambda row=c,col=d :self.check_piece_move(row,col), state = state)
+
+                self.gui[c][d].configure(bg=self.checker(c,d))
+
+
         self.print_board()
 
+    def checker(self,row,col):
+        if ( row * 7 + col ) % 2:
+            return self.prefs.read_pref("general","checker1")
+        else:
+            return self.prefs.read_pref("general","checker2")
+            #return "firebrick4"
 
 chess_game = chess()
 chess_game.run()
